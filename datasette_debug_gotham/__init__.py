@@ -75,6 +75,4 @@ def datasette_comments_users():
 
 @hookimpl
 def extra_js_urls(template, database, table, columns, view_name, request, datasette):
-    return [
-      datasette.urls.static_plugins("datasette_debug_gotham", "widget.js") 
-    ]
+    return [datasette.urls.static_plugins("datasette_debug_gotham", "widget.js")]
