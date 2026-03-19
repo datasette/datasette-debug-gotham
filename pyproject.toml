@@ -10,7 +10,8 @@ classifiers=[
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "datasette"
+    "datasette",
+    "datasette-debug-bar",
 ]
 
 [dependency-groups]
