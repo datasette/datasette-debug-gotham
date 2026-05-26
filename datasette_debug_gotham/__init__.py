@@ -12,18 +12,21 @@ ACTORS = {
         "id": "clark",
         "name": "Clark Kent",
         "newsroom": "daily-planet",
+        "gender": "male",
         "profile_picture_url": pfp("C", bg="blue"),
     },
     "lois": {
         "id": "lois",
         "name": "Lois Lane",
         "newsroom": "daily-planet",
+        "gender": "female",
         "profile_picture_url": pfp("L", bg="red"),
     },
     "jimmy": {
         "id": "jimmy",
         "name": "Jimmy Olsen",
         "newsroom": "daily-planet",
+        "gender": "male",
         "profile_picture_url": pfp("J", bg="orange"),
     },
     ###### GOTHAM GAZETTE ######
@@ -31,18 +34,21 @@ ACTORS = {
         "id": "bruce",
         "name": "Bruce Wayne",
         "newsroom": "gotham-gazette",
+        "gender": "male",
         "profile_picture_url": pfp("B", bg="black"),
     },
     "alfred": {
         "id": "alfred",
         "name": "Alfred Pennyworth",
         "newsroom": "gotham-gazette",
+        "gender": "male",
         "profile_picture_url": pfp("A", bg="gray"),
     },
     "selina": {
         "id": "selina",
         "name": "Selina Kyle",
         "newsroom": "gotham-gazette",
+        "gender": "female",
         "profile_picture_url": pfp("S", bg="purple"),
     },
 }
