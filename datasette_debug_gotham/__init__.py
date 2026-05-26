@@ -53,6 +53,15 @@ _USERS_JS = json.dumps(
 )
 
 
+def _user_profiles_installed():
+    """True if datasette-user-profiles is importable in this environment."""
+    try:
+        import datasette_user_profiles  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 @hookimpl
 def actor_from_request(datasette, request):
     actor_id = request.cookies.get("actor")
@@ -61,9 +70,142 @@ def actor_from_request(datasette, request):
             return ACTORS[key]
 
 
+if _user_profiles_installed():
+
+    @hookimpl
+    def datasette_resolve_actors(datasette, actor_ids):
+        """Resolve gotham's demo actors via the user-profiles sub-hook.
+
+        user-profiles is the single owner of the core ``actors_from_ids`` hook
+        (it is ``firstresult=True``). When it is installed we contribute our
+        actors through its ``datasette_resolve_actors`` sub-hook instead of
+        competing for the core hook, so seeded profiles and gotham resolution
+        agree on names/avatars.
+        """
+        return {
+            actor_id: ACTORS[actor_id]
+            for actor_id in actor_ids
+            if actor_id in ACTORS
+        }
+
+else:
+
+    @hookimpl
+    def actors_from_ids(datasette, actor_ids):
+        # No user-profiles: own the core hook directly (standalone demo).
+        return {
+            actor_id: ACTORS[actor_id]
+            for actor_id in actor_ids
+            if actor_id in ACTORS
+        }
+
+
 @hookimpl
-def actors_from_ids(datasette, actor_ids):
-    return ACTORS
+def startup(datasette):
+    """Seed gotham's demo actors into datasette-user-profiles, if installed.
+
+    user-profiles never auto-populates ``datasette_user_profiles``, so without
+    this the people-search in the share dialog returns nothing for gotham's
+    actors. We upsert each actor's display name (and its data-URL profile
+    picture as a photo) so name-search surfaces them with friendly names and
+    avatars. No-op when user-profiles is absent.
+    """
+
+    async def inner():
+        if not _user_profiles_installed():
+            return
+        internal_db = datasette.get_internal_database()
+
+        # Ensure the profiles tables exist before we seed: startup hook order
+        # across plugins is not guaranteed, so apply user-profiles' internal
+        # migrations (idempotent) ourselves rather than relying on its startup
+        # having run first.
+        try:
+            from sqlite_utils import Database as SqliteUtilsDatabase
+            from datasette_user_profiles.internal_migrations import (
+                internal_migrations,
+            )
+
+            def migrate(conn):
+                internal_migrations.apply(SqliteUtilsDatabase(conn))
+
+            await internal_db.execute_write_fn(migrate)
+        except Exception:
+            # If migrations can't be applied here, fall back to assuming
+            # user-profiles' own startup created the tables.
+            pass
+
+        # Decode each actor's data-URL profile picture into (bytes, content_type)
+        # so we can seed datasette_user_profile_photos. The gotham pictures are
+        # SVG data URLs (data:image/svg+xml,<percent-encoded svg>); fall back to
+        # the initials chip when a picture can't be decoded.
+        photos = {}
+        for actor_id, info in ACTORS.items():
+            decoded = _decode_data_url(info.get("profile_picture_url"))
+            if decoded is not None:
+                photos[actor_id] = decoded
+
+        def write(conn):
+            with conn:
+                for actor_id, info in ACTORS.items():
+                    conn.execute(
+                        """
+                        INSERT INTO datasette_user_profiles (actor_id, display_name)
+                        VALUES (?, ?)
+                        ON CONFLICT(actor_id) DO UPDATE SET
+                            display_name = excluded.display_name,
+                            updated_at = strftime('%Y-%m-%dT%H:%M:%f', 'now')
+                        """,
+                        [actor_id, info["name"]],
+                    )
+                    photo = photos.get(actor_id)
+                    if photo is not None:
+                        photo_bytes, content_type = photo
+                        conn.execute(
+                            """
+                            INSERT INTO datasette_user_profile_photos
+                                (actor_id, photo, content_type)
+                            VALUES (?, ?, ?)
+                            ON CONFLICT(actor_id) DO UPDATE SET
+                                photo = excluded.photo,
+                                content_type = excluded.content_type,
+                                updated_at = strftime('%Y-%m-%dT%H:%M:%f', 'now')
+                            """,
+                            [actor_id, photo_bytes, content_type],
+                        )
+
+        await internal_db.execute_write_fn(write)
+
+    return inner
+
+
+def _decode_data_url(data_url):
+    """Decode a ``data:`` URL into ``(bytes, content_type)`` or ``None``.
+
+    Handles both percent-encoded (gotham's SVG pictures) and base64 data URLs.
+    """
+    if not data_url or not data_url.startswith("data:"):
+        return None
+    try:
+        header, _, payload = data_url[len("data:"):].partition(",")
+        if not _:
+            return None
+        is_base64 = header.endswith(";base64")
+        content_type = header[: -len(";base64")] if is_base64 else header
+        content_type = content_type or "application/octet-stream"
+        if is_base64:
+            import base64
+
+            body = base64.b64decode(payload)
+        else:
+            from urllib.parse import unquote
+
+            body = unquote(payload).encode("utf-8")
+        if not body or len(body) > 1048576:
+            return None
+        return body, content_type
+    except Exception:
+        return None
 
 
 @hookimpl
