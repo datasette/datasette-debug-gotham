@@ -1,6 +1,6 @@
 [project]
 name = "datasette-debug-gotham"
-version = "0.1.0a2"
+version = "0.1.0a3"
 description = "A debugging utility for testing actor permissions/actions with DC Superheros (superman, Batman, Daily Planet, etc.)"
 readme = "README.md"
 authors = [{name = "Alex Garcia"}]
