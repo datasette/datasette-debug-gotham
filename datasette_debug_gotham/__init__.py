@@ -79,22 +79,6 @@ def actor_from_request(datasette, request):
 if _user_profiles_installed():
 
     @hookimpl
-    def datasette_resolve_actors(datasette, actor_ids):
-        """Resolve gotham's demo actors via the user-profiles sub-hook.
-
-        user-profiles is the single owner of the core ``actors_from_ids`` hook
-        (it is ``firstresult=True``). When it is installed we contribute our
-        actors through its ``datasette_resolve_actors`` sub-hook instead of
-        competing for the core hook, so seeded profiles and gotham resolution
-        agree on names/avatars.
-        """
-        return {
-            actor_id: ACTORS[actor_id]
-            for actor_id in actor_ids
-            if actor_id in ACTORS
-        }
-
-    @hookimpl
     def datasette_user_profile_seeds(datasette):
         """Seed gotham's demo actors into the profiles directory.
 
