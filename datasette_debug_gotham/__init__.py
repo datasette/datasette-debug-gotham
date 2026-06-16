@@ -12,18 +12,21 @@ ACTORS = {
         "id": "clark",
         "name": "Clark Kent",
         "newsroom": "daily-planet",
+        "gender": "male",
         "profile_picture_url": pfp("C", bg="blue"),
     },
     "lois": {
         "id": "lois",
         "name": "Lois Lane",
         "newsroom": "daily-planet",
+        "gender": "female",
         "profile_picture_url": pfp("L", bg="red"),
     },
     "jimmy": {
         "id": "jimmy",
         "name": "Jimmy Olsen",
         "newsroom": "daily-planet",
+        "gender": "male",
         "profile_picture_url": pfp("J", bg="orange"),
     },
     ###### GOTHAM GAZETTE ######
@@ -31,18 +34,21 @@ ACTORS = {
         "id": "bruce",
         "name": "Bruce Wayne",
         "newsroom": "gotham-gazette",
+        "gender": "male",
         "profile_picture_url": pfp("B", bg="black"),
     },
     "alfred": {
         "id": "alfred",
         "name": "Alfred Pennyworth",
         "newsroom": "gotham-gazette",
+        "gender": "male",
         "profile_picture_url": pfp("A", bg="gray"),
     },
     "selina": {
         "id": "selina",
         "name": "Selina Kyle",
         "newsroom": "gotham-gazette",
+        "gender": "female",
         "profile_picture_url": pfp("S", bg="purple"),
     },
 }
@@ -53,6 +59,15 @@ _USERS_JS = json.dumps(
 )
 
 
+def _user_profiles_installed():
+    """True if datasette-user-profiles is importable in this environment."""
+    try:
+        import datasette_user_profiles  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 @hookimpl
 def actor_from_request(datasette, request):
     actor_id = request.cookies.get("actor")
@@ -61,9 +76,39 @@ def actor_from_request(datasette, request):
             return ACTORS[key]
 
 
-@hookimpl
-def actors_from_ids(datasette, actor_ids):
-    return ACTORS
+if _user_profiles_installed():
+
+    @hookimpl
+    def datasette_user_profile_seeds(datasette):
+        """Seed gotham's demo actors into the profiles directory.
+
+        user-profiles never auto-populates its tables, so without this the
+        people-search in the share dialog returns nothing for gotham's actors.
+        We hand each actor's name and its ``data:`` SVG profile picture to the
+        seed hook; user-profiles owns the tables, decodes the picture and writes
+        it with fill-missing semantics (so a demo user's own edits survive).
+        """
+        from datasette_user_profiles.hookspecs import ProfileSeed
+
+        return [
+            ProfileSeed(
+                actor_id=actor_id,
+                display_name=info["name"],
+                photo_url=info.get("profile_picture_url"),
+            )
+            for actor_id, info in ACTORS.items()
+        ]
+
+else:
+
+    @hookimpl
+    def actors_from_ids(datasette, actor_ids):
+        # No user-profiles: own the core hook directly (standalone demo).
+        return {
+            actor_id: ACTORS[actor_id]
+            for actor_id in actor_ids
+            if actor_id in ACTORS
+        }
 
 
 @hookimpl
