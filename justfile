@@ -11,4 +11,4 @@ check:
 
 # Development
 dev *flags:
-    DATASETTE_SECRET=abc123 uv run datasette {{flags}}
+    DATASETTE_SECRET=abc123 uv run datasette -s permissions.profile_access.id "*" {{flags}}
