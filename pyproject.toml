@@ -12,12 +12,16 @@ requires-python = ">=3.10"
 dependencies = [
     "datasette",
     "datasette-debug-bar",
+    "datasette-user-profiles>=0.1.0a8",
 ]
 
 [dependency-groups]
 dev = [
     "pytest",
-    "pytest-asyncio"
+    "pytest-asyncio",
+    "datasette-acl>=0.5a1",
+    # datasette-acl-share is not on PyPI yet; install its wheel from GitHub releases
+    "datasette-acl-share @ https://github.com/datasette/datasette-acl-share/releases/download/0.0.1a2/datasette_acl_share-0.0.1a2-py3-none-any.whl",
 ]
 
 [build-system]
