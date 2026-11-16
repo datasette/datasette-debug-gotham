@@ -149,27 +149,48 @@ def debug_bar_items(datasette):
                 date.setTime(date.getTime() + 365*24*60*60*1000);
                 document.cookie = name + "=" + value + ";expires=" + date.toUTCString() + ";path=/";
             }
-            var current = getCookie('actor') || 'clark';
-            var currentUser = users.find(function(u) { return u.name === current; }) || users[0];
+            function clearCookie(name) {
+                document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+            }
+            // No cookie, or one that names nobody, means there is no actor:
+            // show that, rather than pretending to be the first user.
+            var current = getCookie('actor');
+            var currentUser = users.find(function(u) { return u.name === current; }) || null;
+            var signedOutIcon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="2 2"/></svg>';
 
             var info = document.createElement('div');
             info.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;';
-            info.innerHTML = '<span>' + icons[currentUser.newsroom] + '</span>' +
-                '<span style="font-weight:bold;color:#333;">' + currentUser.name + '</span>' +
-                '<span style="color:#999;font-size:12px;">(' + currentUser.newsroom + ')</span>';
+            if (currentUser) {
+                info.innerHTML = '<span>' + icons[currentUser.newsroom] + '</span>' +
+                    '<span style="font-weight:bold;color:#333;">' + currentUser.name + '</span>' +
+                    '<span style="color:#999;font-size:12px;">(' + currentUser.newsroom + ')</span>';
+            } else {
+                info.innerHTML = '<span>' + signedOutIcon + '</span>' +
+                    '<span style="font-weight:bold;color:#333;">Signed out</span>' +
+                    '<span style="color:#999;font-size:12px;">(no actor)</span>';
+            }
             el.appendChild(info);
 
             var select = document.createElement('select');
             select.style.cssText = 'width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:13px;cursor:pointer;background:white;';
+            var signedOut = document.createElement('option');
+            signedOut.value = '';
+            signedOut.textContent = 'Signed out (no actor)';
+            if (!currentUser) signedOut.selected = true;
+            select.appendChild(signedOut);
             users.forEach(function(user) {
                 var opt = document.createElement('option');
                 opt.value = user.name;
                 opt.textContent = user.name + ' (' + user.newsroom + ')';
-                if (user.name === currentUser.name) opt.selected = true;
+                if (currentUser && user.name === currentUser.name) opt.selected = true;
                 select.appendChild(opt);
             });
             select.addEventListener('change', function(e) {
-                setCookie('actor', e.target.value);
+                if (e.target.value) {
+                    setCookie('actor', e.target.value);
+                } else {
+                    clearCookie('actor');
+                }
                 location.reload();
             });
             el.appendChild(select);

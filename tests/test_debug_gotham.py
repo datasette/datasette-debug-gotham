@@ -42,3 +42,34 @@ async def test_seeds_actors_into_user_profiles():
     ).first()
     assert photo is not None
     assert photo["content_type"] == "image/svg+xml"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cookies,expected_id",
+    [
+        ({"actor": "clark"}, "clark"),
+        ({"actor": "selina"}, "selina"),
+        # No cookie, an empty one, or one naming nobody: signed out
+        ({}, None),
+        ({"actor": ""}, None),
+        ({"actor": "joker"}, None),
+    ],
+)
+async def test_actor_cookie(cookies, expected_id):
+    datasette = Datasette(memory=True)
+    response = await datasette.client.get("/-/actor.json", cookies=cookies)
+    assert response.status_code == 200
+    actor = response.json()["actor"]
+    assert (actor or {}).get("id") == expected_id
+
+
+def test_switcher_offers_signed_out():
+    from datasette_debug_gotham import debug_bar_items
+
+    entrypoint = debug_bar_items(datasette=None)["entrypoint"]
+    assert "Signed out (no actor)" in entrypoint
+    # Choosing it removes the cookie instead of setting one
+    assert "clearCookie('actor')" in entrypoint
+    # ... and a missing cookie is no longer shown as the first user
+    assert "|| 'clark'" not in entrypoint
